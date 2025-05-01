@@ -82,7 +82,8 @@ class OWPythonScriptGenerator(OWWidget):
         self.send_button.clicked.connect(self.generate_code)
         coding_layout.addWidget(self.send_button, 2, 0, 1, 3)
 
-        self.code_box = QTextEdit(self.generated_code)
+        self.code_box = QTextEdit()
+        self.code_box.setPlainText(self.generated_code)
         self.code_box.setMinimumHeight(200)
         coding_layout.addWidget(QLabel("Generated Code (editable):"), 3, 0, 1, 3)
         coding_layout.addWidget(self.code_box, 4, 0, 1, 3)

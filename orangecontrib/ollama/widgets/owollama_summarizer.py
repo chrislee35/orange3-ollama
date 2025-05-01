@@ -1,5 +1,5 @@
-from AnyQt.QtWidgets import QTextEdit, QPushButton, QComboBox, QLabel, QLineEdit, QGridLayout, QVBoxLayout, QWidget
-from AnyQt.QtCore import QMetaObject, Qt, Q_ARG, QObject, pyqtSignal
+from AnyQt.QtWidgets import QTextEdit, QPushButton, QComboBox, QLabel, QLineEdit, QGridLayout, QVBoxLayout, QWidget, QProgressBar
+from AnyQt.QtCore import QMetaObject, Qt, Q_ARG, QObject, pyqtSignal, QThread
 from Orange.widgets import gui
 from Orange.widgets.settings import Setting
 from Orange.widgets.widget import OWWidget, Input, Output
@@ -10,9 +10,53 @@ import json
 import threading
 import pandas as pd
 
-class StreamHandler(QObject):
-    new_text = pyqtSignal(str)
-    error = pyqtSignal(str)
+class SummarizerWorker(QThread):
+    progress_updated = pyqtSignal(int)
+    result_ready = pyqtSignal(object)
+    summary_error = pyqtSignal(str)
+
+    def __init__(self, corpus, column, host, port, model, context):
+        super().__init__()
+        self.corpus = corpus
+        self.column = column
+        self.host = host
+        self.port = port
+        self.model = model
+        self.context = context
+        self._cancel = False
+
+    def cancel(self):
+        self._cancel = True
+
+    def run(self):
+        summaries = []
+        total = len(self.corpus)
+
+        for i, text in enumerate(self.corpus.get_column(self.column)):
+            if self._cancel:
+                return
+            prompt = f"{self.context}\n\nPlease provide a very short summary of the following document:\n\n{text}"
+
+            try:
+                response = requests.post(
+                    f"http://{self.host}:{self.port}/api/generate",
+                    headers={"Content-Type": "application/json"},
+                    data=json.dumps({"model": self.model, "prompt": prompt})
+                )
+                if response.status_code == 200:
+                    lines = response.text.strip().splitlines()
+                    results = [json.loads(l)['response'] for l in lines if 'response' in json.loads(l)]
+                    summaries.append("".join(results).strip())
+                else:
+                    summaries.append("[Error in response]")
+            except Exception as e:
+                summaries.append(f"[Error: {e}]")
+
+            progress = int((i + 1) / total * 100)
+            self.progress_updated.emit(progress)
+
+        self.corpus = self.corpus.add_column(StringVariable(name="Summary"), summaries, to_metas=True)
+        self.result_ready.emit(self.corpus)
 
 class OWOllamaSummarizer(OWWidget):
     name = "Ollama Summarizer"
@@ -35,6 +79,7 @@ class OWOllamaSummarizer(OWWidget):
     def __init__(self):
         super().__init__()
         self.in_corpus = None
+        self.worker = None
         self.layout_control_area()
         self.layout_main_area()
 
@@ -56,8 +101,13 @@ class OWOllamaSummarizer(OWWidget):
         layout.addWidget(self.model_selector, 2, 1, 1, 2)
 
         self.summarize_button = QPushButton("Summarize Documents")
-        self.summarize_button.clicked.connect(self.summarize_documents)
-        layout.addWidget(self.summarize_button, 3, 0, 1, 3)
+        self.summarize_button.clicked.connect(self.run_summary_thread)
+        layout.addWidget(self.summarize_button, 3, 0, 1, 2)
+
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.clicked.connect(self.cancel_summary)
+        layout.addWidget(self.cancel_button, 3, 2)
 
         control_layout = QVBoxLayout()
         control_layout.setAlignment(Qt.AlignTop)
@@ -79,6 +129,13 @@ class OWOllamaSummarizer(OWWidget):
         self.mainArea.layout().addWidget(QLabel("Text Feature to Summarize:"))
         self.mainArea.layout().addWidget(self.feature_selector)
 
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(0)
+        self.mainArea.layout().addWidget(QLabel("Progress:"))
+        self.mainArea.layout().addWidget(self.progress_bar)
+
     def update_model_list(self):
         host, port = self.host_input.text(), self.port_input.text()
         try:
@@ -95,61 +152,46 @@ class OWOllamaSummarizer(OWWidget):
         except Exception as e:
             print("Failed to fetch models from Ollama server:", e)
 
-    def summarize_documents(self):
+    def run_summary_thread(self):
         if self.in_corpus is None:
             return
 
-        df = table_to_frame(self.in_corpus, include_metas=True)
-        if self.selected_column not in df.columns:
+        metas = self.text_columns
+        if self.selected_column not in metas:
             return
-
-        summaries = []
 
         host = self.host_input.text()
         port = self.port_input.text()
         model = self.model_selector.currentText()
         context = self.prompt_context
 
-        for i, row in df.iterrows():
-            text = row[self.selected_column]
-            prompt = f"{context}\n\nPlease provide a very short summary of the following document:\n\n{text}"
+        self.worker = SummarizerWorker(self.in_corpus.copy(), self.selected_column, host, port, model, context)
+        self.worker.progress_updated.connect(self.progress_bar.setValue)
+        self.worker.result_ready.connect(self.handle_result)
+        self.worker.start()
+        self.cancel_button.setEnabled(True)
 
-            try:
-                response = requests.post(
-                    f"http://{host}:{port}/api/generate",
-                    headers={"Content-Type": "application/json"},
-                    data=json.dumps({"model": model, "prompt": prompt})
-                )
-                if response.status_code == 200:
-                    lines = response.text.strip().splitlines()
-                    results = [json.loads(l)['response'] for l in lines if 'response' in json.loads(l)]
-                    summaries.append("".join(results).strip())
-                else:
-                    summaries.append("[Error in response]")
-            except Exception as e:
-                summaries.append(f"[Error: {e}]")
-            break
+    def cancel_summary(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.cancel()
+            self.worker.wait()
+        self.cancel_button.setEnabled(False)
 
-        df['Summary'] = summaries
-        # summary_var = StringVariable("Summary")
-        # attrs = list(self.in_corpus.domain.attributes)
-        # class_vars = list(self.in_corpus.domain.class_vars)
-        # metas = list(self.in_corpus.domain.metas) + [summary_var]
-        # domain = Domain(attrs, class_vars, metas)
-        #summary_col = pd.Series(summaries, name='Summary')
-        summary_table = table_from_frame(df)
-
+    def handle_result(self, summary_table):
         self.Outputs.out_table.send(summary_table)
+        self.progress_bar.setValue(100)
+        self.cancel_button.setEnabled(False)
 
     @Inputs.in_corpus
     def set_input(self, data):
         self.in_corpus = data
+        self.text_columns = []
         if data is not None:
-            df = table_to_frame(data, include_metas=True)
             self.feature_selector.clear()
-            for col in df.columns:
-                if pd.api.types.is_string_dtype(df[col]) and not pd.api.types.is_categorical_dtype(df[col]):
-                    self.feature_selector.addItem(col)
+            for col in data.domain.metas:
+                if isinstance(col, StringVariable):
+                    self.feature_selector.addItem(col.name)
+                    self.text_columns.append(col.name)
             if self.selected_column:
                 idx = self.feature_selector.findText(self.selected_column)
                 if idx >= 0:
