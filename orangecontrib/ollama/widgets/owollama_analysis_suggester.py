@@ -67,7 +67,7 @@ class SuggestionWorker(QThread):
 class OWOllamaAnalysisSuggester(OWWidget):
     name = "Ollama Analysis Suggester"
     description = "Suggests types of analysis and preprocessing using Ollama."
-    icon = "icons/ollama-seeklogo.svg"
+    icon = "icons/ollama-idea.svg"
     priority = 104
 
     class Inputs:

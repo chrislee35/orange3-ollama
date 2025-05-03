@@ -61,7 +61,7 @@ class SummarizerWorker(QThread):
 class OWOllamaSummarizer(OWWidget):
     name = "Ollama Summarizer"
     description = "Summarizes documents using models hosted in Ollama."
-    icon = "icons/ollama-seeklogo.svg"
+    icon = "icons/ollama-summary.svg"
     priority = 101
 
     class Inputs:

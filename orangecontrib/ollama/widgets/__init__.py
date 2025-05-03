@@ -9,9 +9,9 @@ import sysconfig
 NAME = "Ollama"
 DESCRIPTION = "Ollama Widgets"
 
-ICON = "icons/ollama-seeklogo.svg"
+ICON = "icons/ollama-orange.svg"
 PRIORITY = 1000
-BACKGROUND = "#7FBC22" # Apple Green
+BACKGROUND = "#a8cd6e" # Apple Green
 
 WIDGET_HELP_PATH = (
 # Used for development.

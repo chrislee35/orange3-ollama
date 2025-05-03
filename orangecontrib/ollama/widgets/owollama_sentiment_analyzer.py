@@ -70,7 +70,7 @@ class SentimentWorker(QThread):
 class OWOllamaSentimentAnalyzer(OWWidget):
     name = "Ollama Sentiment Analyzer"
     description = "Determines sentiment of text using models hosted in Ollama."
-    icon = "icons/ollama-seeklogo.svg"
+    icon = "icons/ollama-sentiment.svg"
     priority = 102
 
     class Inputs:

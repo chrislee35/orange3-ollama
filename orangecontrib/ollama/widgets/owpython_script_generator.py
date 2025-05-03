@@ -55,7 +55,7 @@ class ScriptGenerationWorker(QThread):
 class OWPythonScriptGenerator(OWWidget):
     name = "Python Script Generator with LLM"
     description = "Generates Python scripts using models hosted in Ollama."
-    icon = "icons/ollama-seeklogo.svg"
+    icon = "icons/ollama-code.svg"
     priority = 100
 
     class Inputs:

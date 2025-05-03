@@ -68,7 +68,7 @@ class ClassificationWorker(QThread):
 class OWOllamaTextClassifier(OWWidget):
     name = "Ollama Text Classification"
     description = "Classifies text using models hosted in Ollama."
-    icon = "icons/ollama-seeklogo.svg"
+    icon = "icons/ollama-label.svg"
     priority = 103
 
     class Inputs:

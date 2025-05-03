@@ -8,6 +8,7 @@ Within the Add-ons installer, click on "Add more..." and type in orange3-ollama
 
 ## Widgets
 
+![All 5 Ollama-based widgets on the canvas](https://github.com/chrislee35/orange3-ollama/blob/main/imgs/ollama-all.png?raw=true)
 
 ### Ollama Text Classifier
 * Inputs: Corpus
