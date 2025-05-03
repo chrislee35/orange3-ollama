@@ -13,6 +13,10 @@ docs:
 build:
 	python -m build
 
+# Push package to pypi.org
+release: build
+	twine upload dist/*
+
 # Clean build artifacts
 clean:
 	rm -rf build/ dist/ *.egg-info doc/_build
