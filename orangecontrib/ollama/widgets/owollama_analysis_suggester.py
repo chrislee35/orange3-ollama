@@ -1,5 +1,6 @@
 from AnyQt.QtWidgets import QTextEdit, QPushButton, QComboBox, QLabel, QLineEdit, QGridLayout, QVBoxLayout, QWidget, QProgressBar
 from AnyQt.QtCore import QMetaObject, Qt, Q_ARG, QObject, pyqtSignal, QThread
+from AnyQt.QtGui import QTextCursor
 from Orange.widgets import gui
 from Orange.widgets.settings import Setting
 from Orange.widgets.widget import OWWidget, Input
@@ -7,13 +8,13 @@ from Orange.data import Table
 from Orange.data.pandas_compat import table_from_frame, table_to_frame
 import requests
 import json
-import threading
 import pandas as pd
 
 class SuggestionWorker(QThread):
     progress_updated = pyqtSignal(int)
     suggestion_ready = pyqtSignal(str)
     suggestion_error = pyqtSignal(str)
+    suggestion_partial = pyqtSignal(str)
 
     def __init__(self, table, host, port, model, analysis_type):
         super().__init__()
@@ -39,24 +40,29 @@ class SuggestionWorker(QThread):
     def run(self):
         description = self.describe_table()
         prompt = f"{self.analysis_type}\n\n{description}"
-        suggestion_text = ""
 
         try:
-            response = requests.post(
+            with requests.post(
                 f"http://{self.host}:{self.port}/api/generate",
                 headers={"Content-Type": "application/json"},
-                data=json.dumps({"model": self.model, "prompt": prompt})
-            )
-            if response.status_code == 200:
-                lines = response.text.strip().splitlines()
-                results = [json.loads(l)['response'] for l in lines if 'response' in json.loads(l)]
-                suggestion_text = "".join(results).strip()
-            else:
-                suggestion_text = f"[Error in response: {response.status_code}]"
+                data=json.dumps({"model": self.model, "prompt": prompt}),
+                stream=True
+            ) as response:
+                if response.status_code == 200:
+                    for line in response.iter_lines():
+                        if self._cancel:
+                            break
+                        if line:
+                            try:
+                                data = json.loads(line.decode("utf-8"))
+                                if 'response' in data:
+                                    self.suggestion_partial.emit(data['response'])
+                            except Exception as e:
+                                print("Parsing error:", e)
+                else:
+                    self.suggestion_ready.emit(f"[Error in response: {response.status_code}]")
         except Exception as e:
-            suggestion_text = f"[Error: {e}]"
-
-        self.suggestion_ready.emit(suggestion_text)
+            self.suggestion_ready.emit(f"[Error: {e}]")
 
 class OWOllamaAnalysisSuggester(OWWidget):
     name = "Ollama Analysis Suggester"
@@ -94,14 +100,19 @@ class OWOllamaAnalysisSuggester(OWWidget):
         self.port_input = QLineEdit(self.ollama_port)
         layout.addWidget(self.port_input, 1, 1)
         self.port_input.editingFinished.connect(self.update_model_list)
-        
+
         self.model_selector = QComboBox()
         layout.addWidget(QLabel("Active Model:"), 2, 0)
         layout.addWidget(self.model_selector, 2, 1)
 
         self.run_button = QPushButton("Perform Suggestion")
         self.run_button.clicked.connect(self.run_suggestion_thread)
-        layout.addWidget(self.run_button, 3, 0, 1, 2)
+        layout.addWidget(self.run_button, 3, 0)
+
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.clicked.connect(self.cancel_suggestion)
+        layout.addWidget(self.cancel_button, 3, 1)
 
         control_layout = QVBoxLayout()
         control_layout.setAlignment(Qt.AlignTop)
@@ -169,12 +180,25 @@ class OWOllamaAnalysisSuggester(OWWidget):
 
         self.worker = SuggestionWorker(self.in_table, host, port, model, analysis_type)
         self.worker.suggestion_ready.connect(self.handle_suggestion)
+        self.worker.suggestion_partial.connect(self.handle_partial_update)
         self.worker.progress_updated.connect(self.progress_bar.setValue)
         self.worker.start()
+        self.cancel_button.setEnabled(True)
 
     def handle_suggestion(self, result):
-        self.result_text.setPlainText(result)
         self.progress_bar.setValue(100)
+        self.cancel_button.setEnabled(False)
+
+    def handle_partial_update(self, text):
+        self.result_text.moveCursor(QTextCursor.End)
+        self.result_text.insertPlainText(text)
+        self.result_text.moveCursor(QTextCursor.End)
+
+    def cancel_suggestion(self):
+        if self.worker and self.worker.isRunning():
+            self.worker.cancel()
+            self.worker.wait()
+            self.cancel_button.setEnabled(False)
 
     @Inputs.in_table
     def set_input(self, data):

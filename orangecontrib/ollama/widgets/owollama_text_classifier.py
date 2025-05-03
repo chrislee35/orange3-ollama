@@ -107,16 +107,16 @@ class OWOllamaTextClassifier(OWWidget):
 
         self.model_selector = QComboBox()
         layout.addWidget(QLabel("Active Model:"), 2, 0)
-        layout.addWidget(self.model_selector, 2, 1, 1, 2)
+        layout.addWidget(self.model_selector, 2, 1)
 
         self.run_button = QPushButton("Classify Text")
         self.run_button.clicked.connect(self.run_classification_thread)
-        layout.addWidget(self.run_button, 3, 0, 1, 2)
+        layout.addWidget(self.run_button, 3, 0)
 
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setEnabled(False)
         self.cancel_button.clicked.connect(self.cancel_summary)
-        layout.addWidget(self.cancel_button, 3, 2)
+        layout.addWidget(self.cancel_button, 3, 1)
 
         control_layout = QVBoxLayout()
         control_layout.setAlignment(Qt.AlignTop)

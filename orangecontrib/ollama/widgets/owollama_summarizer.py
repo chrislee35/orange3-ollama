@@ -97,19 +97,19 @@ class OWOllamaSummarizer(OWWidget):
         self.port_input = QLineEdit(self.ollama_port)
         layout.addWidget(self.port_input, 1, 1)
         self.port_input.editingFinished.connect(self.update_model_list)
-        
+
         self.model_selector = QComboBox()
         layout.addWidget(QLabel("Active Model:"), 2, 0)
-        layout.addWidget(self.model_selector, 2, 1, 1, 2)
+        layout.addWidget(self.model_selector, 2, 1)
 
         self.summarize_button = QPushButton("Summarize Documents")
         self.summarize_button.clicked.connect(self.run_summary_thread)
-        layout.addWidget(self.summarize_button, 3, 0, 1, 2)
+        layout.addWidget(self.summarize_button, 3, 0)
 
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.setEnabled(False)
         self.cancel_button.clicked.connect(self.cancel_summary)
-        layout.addWidget(self.cancel_button, 3, 2)
+        layout.addWidget(self.cancel_button, 3, 1)
 
         control_layout = QVBoxLayout()
         control_layout.setAlignment(Qt.AlignTop)
