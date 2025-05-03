@@ -91,11 +91,13 @@ class OWOllamaSummarizer(OWWidget):
         layout.addWidget(QLabel("Ollama Host:"), 0, 0)
         self.host_input = QLineEdit(self.ollama_host)
         layout.addWidget(self.host_input, 0, 1)
+        self.host_input.editingFinished.connect(self.update_model_list)
 
         layout.addWidget(QLabel("Ollama Port:"), 1, 0)
         self.port_input = QLineEdit(self.ollama_port)
         layout.addWidget(self.port_input, 1, 1)
-
+        self.port_input.editingFinished.connect(self.update_model_list)
+        
         self.model_selector = QComboBox()
         layout.addWidget(QLabel("Active Model:"), 2, 0)
         layout.addWidget(self.model_selector, 2, 1, 1, 2)
