@@ -52,8 +52,8 @@ class ScriptGenerationWorker(QThread):
     def stop(self):
         self._is_running = False
 
-class OWPythonScriptGenerator(OWWidget):
-    name = "Python Script Generator with LLM"
+class OWOllamaScriptGenerator(OWWidget):
+    name = "Ollama Script Generator"
     description = "Generates Python scripts using models hosted in Ollama."
     icon = "icons/ollama-code.svg"
     priority = 100
@@ -236,4 +236,4 @@ out_table = table_from_frame(out_df)
 
 if __name__ == "__main__":
     from orangewidget.utils.widgetpreview import WidgetPreview
-    WidgetPreview(OWPythonScriptGenerator).run(Table("iris"))
+    WidgetPreview(OWOllamaScriptGenerator).run(Table("iris"))
