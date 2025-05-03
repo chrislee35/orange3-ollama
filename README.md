@@ -26,8 +26,7 @@ Within the Add-ons installer, click on "Add more..." and type in orange3-ollama
 * Inputs: Corpus
 * Outputs: Annotated corpus with summary column
 
-![Example Orange3 workflow using the Ollama Summarizer widget to generate a short summary of stories from the Andersen text corpus.](https://
-github.com/chrislee35/orange3-ollama/blob/main/imgs/ollama-summarizer.png?raw=true)
+![Example Orange3 workflow using the Ollama Summarizer widget to generate a short summary of stories from the Andersen text corpus.](https://github.com/chrislee35/orange3-ollama/blob/main/imgs/ollama-summarizer.png?raw=true)
 
 ### Ollama Analysis Suggester
 * Inputs: Table
